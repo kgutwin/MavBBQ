@@ -1,0 +1,35 @@
+{
+    "appKeys": {
+        "temp1": 10,
+        "temp2": 20,
+        "tempGet": 1
+    },
+    "capabilities": [
+        ""
+    ],
+    "companyName": "kgutwin",
+    "longName": "MavBBQ",
+    "projectType": "native",
+    "resources": {
+        "media": [
+            {
+                "file": "images/action_icon_minus",
+                "name": "IMAGE_ACTION_ICON_MINUS",
+                "type": "png"
+            },
+            {
+                "file": "images/action_icon_plus",
+                "name": "IMAGE_ACTION_ICON_PLUS",
+                "type": "png"
+            }
+        ]
+    },
+    "sdkVersion": "2",
+    "shortName": "MavBBQ",
+    "uuid": "63b61500-7bb5-4d68-96a7-382384e5a3a5",
+    "versionCode": 1,
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
+}
