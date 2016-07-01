@@ -1,9 +1,10 @@
 #pragma once
 #include <pebble.h>
 
-static float master_temp1 = 0.0;
-static float master_temp2 = 0.0;
+void ditoa(char* str, size_t n, int di);
 
-void update_temp1(float t);
-void update_temp2(float t);
+void update_temp1(int t);
+void update_temp2(int t);
 void update_time(struct tm *time);
+void set_flash_temp(int t, bool flashing);
+int get_temp(int t);

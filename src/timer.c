@@ -7,6 +7,22 @@ time_t timer_start_time = 0;
 time_t timer_pause_time = 0;
 static int last_second = 59;
 
+time_t get_timer_start_time() {
+	return timer_start_time;
+}
+
+time_t get_timer_pause_time() {
+	return timer_pause_time;
+}
+
+void set_timer_start_time(time_t t) {
+	timer_start_time = t;
+}
+
+void set_timer_pause_time(time_t t) {
+	timer_pause_time = t;
+}
+
 void handle_second_tick(struct tm *tick_time, TimeUnits units_changed) {
 	/*
 	int current_sec = tick_time->tm_sec;

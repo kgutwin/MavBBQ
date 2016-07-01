@@ -80,14 +80,12 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tup
 	
 	tuple_log(new_tuple);
 	
-	float new_value = new_tuple->value->int16 / 10.0;
-	
 	switch (key) {
 		case MSG_TEMP1:
-			update_temp1(new_value);
+			update_temp1(new_tuple->value->int16);
 			break;
 		case MSG_TEMP2:
-			update_temp2(new_value);
+			update_temp2(new_tuple->value->int16);
 			break;
 	}
 }

@@ -5,14 +5,13 @@
 #include "commdata.h"
 #include "alarm.h"
 #include "timer.h"
+#include "storage.h"
 
 /* TODOs:
- * - Make setpoints paired up
- * - Implement alarm code
- * - Make timer use persistent storage
  * - check on floating point conversions (decimal is sometimes off of web page)
  * - icons: check mark for setpoints
  *   - upper/lower set point active on main screen, flash when alarming
+ * - send battery charge percent as parameter on http get
  */
 
 static Window *window;
@@ -23,6 +22,16 @@ static char temp1_str[7];
 static char temp2_str[7];
 static char time_str[7];
 Layer *line_layer;
+static AppTimer* flash_timer = NULL;
+static int temp_flashing = 0;
+static int master_temp1 = 0;
+static int master_temp2 = 0;
+
+int get_temp(int t) {
+	if (t == 1) return master_temp1;
+	if (t == 2) return master_temp2;
+	return 0;
+}
 
 void line_layer_update_callback(Layer *layer, GContext* ctx) {
 	graphics_context_set_fill_color(ctx, GColorWhite);
@@ -43,16 +52,22 @@ void ftoa(char* str, size_t n, float f) {
 	snprintf(str, n, "%d.%d", maj, min);
 }
 
-void update_temp1(float t) {
+void ditoa(char* str, size_t n, int di) {
+	int min = di % 10;
+	int maj = di / 10;
+	snprintf(str, n, "%d.%d", maj, min);
+}
+
+void update_temp1(int t) {
 	master_temp1 = t;
-	ftoa(temp1_str, sizeof(temp1_str), t);
+	ditoa(temp1_str, sizeof(temp1_str), t);
 	text_layer_set_text(temp1_layer, temp1_str);
 	alarm_check();
 }
 
-void update_temp2(float t) {
+void update_temp2(int t) {
 	master_temp2 = t;
-	ftoa(temp2_str, sizeof(temp2_str), t);
+	ditoa(temp2_str, sizeof(temp2_str), t);
 	text_layer_set_text(temp2_layer, temp2_str);
 	alarm_check();
 }
@@ -76,12 +91,56 @@ void update_time(struct tm *time) {
 	text_layer_set_text(text_time_layer, time_str);
 }
 
+static int temp_flash_state = 0;
+
+void flash_temp(void* nothing) {
+	if (temp_flashing & 1) {
+		if (temp_flash_state & 1) {
+			text_layer_set_text_color(temp1_layer, GColorWhite);
+			temp_flash_state &= ~1;
+		} else {
+			text_layer_set_text_color(temp1_layer, GColorBlack);
+			temp_flash_state |= 1;
+		}
+	}
+	if (temp_flashing & 2) {
+		if (temp_flash_state & 2) {
+			text_layer_set_text_color(temp2_layer, GColorWhite);
+			temp_flash_state &= ~2;
+		} else {
+			text_layer_set_text_color(temp2_layer, GColorBlack);
+			temp_flash_state |= 2;
+		}
+	}
+	if (temp_flashing) {
+		flash_timer = app_timer_register(500, flash_temp, NULL);
+	}
+}
+
+void set_flash_temp(int t, bool flashing) {
+	if (flashing) {
+		temp_flashing |= t;
+	} else {
+		temp_flashing &= ~t;
+	}
+	if (temp_flashing) {
+		if (flash_timer == NULL) flash_temp(NULL);
+	} else {
+		//APP_LOG(APP_LOG_LEVEL_DEBUG, "canceling flash");
+		if (flash_timer != NULL) app_timer_cancel(flash_timer);
+		flash_timer = NULL;
+		text_layer_set_text_color(temp1_layer, GColorWhite);
+		text_layer_set_text_color(temp2_layer, GColorWhite);
+	}
+}
+
 static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
 	timer_toggle_clock();
 }
 
 static void up_long_handler(ClickRecognizerRef recognizer, void *context) {
-	get_setpoint(alarm_1_setpoint, master_temp1, "Temp 1", (SetpointCallback) alarm_1_update);
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "get setpoint %d %d", alarm_1_upper_setpoint, alarm_1_lower_setpoint);
+	get_setpoint(get_current_setpoint(1, true), get_current_setpoint(1, false), master_temp1, "Temp 1", (SetpointCallback) alarm_1_update);
 }
 
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
@@ -89,7 +148,7 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void select_long_handler(ClickRecognizerRef recognizer, void *context) {
-	get_setpoint(alarm_2_setpoint, master_temp2, "Temp 2", (SetpointCallback) alarm_2_update);
+	get_setpoint(get_current_setpoint(2, true), get_current_setpoint(2, false), master_temp2, "Temp 2", (SetpointCallback) alarm_2_update);
 }
 
 static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
@@ -168,9 +227,11 @@ int main(void) {
   	init();
 	app_message_init();
 	timer_init();
+	storage_load();
 
   	app_event_loop();
 	
+	storage_save();
 	app_message_deinit();
   	deinit();
 }

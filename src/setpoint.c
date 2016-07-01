@@ -1,9 +1,12 @@
 #include <pebble.h>
 #include "setpoint.h"
+#include "main.h"
 
+static int upper_setpoint;
 static int current_setpoint;
-static float current_temp;
-static char *setpoint_header;
+static int current_lower_setpoint;
+static int current_temp;
+static char setpoint_header[16];
 static char setpoint_current_temp[21];
 static ActionBarLayer *action_bar;
 static TextLayer *header_layer, *setpoint_val_layer, *setpoint_current_t_layer;
@@ -11,36 +14,49 @@ static GBitmap *s_icon_plus, *s_icon_minus;
 static SetpointCallback setpoint_callback;
 
 static void setpoint_update_text() {
-	static char setpoint_val_text[5];
+	static char setpoint_val_text[6];
 	if (current_setpoint <= SETPOINT_MIN || current_setpoint >= SETPOINT_MAX) {
 		snprintf(setpoint_val_text, sizeof(setpoint_val_text), "OFF");
 	} else {
-		snprintf(setpoint_val_text, sizeof(setpoint_val_text), "%d", current_setpoint);
+		snprintf(setpoint_val_text, sizeof(setpoint_val_text), "%d", current_setpoint / 10);
+		//ditoa(setpoint_val_text, sizeof(setpoint_val_text), current_setpoint);
 	}
 	text_layer_set_text(setpoint_val_layer, setpoint_val_text);
 }
 
 static void setpoint_down_handler(ClickRecognizerRef recognizer, void *context) {
 	if (current_setpoint == SETPOINT_OFF) {
-		current_setpoint = current_temp;
+		// round down
+		current_setpoint = current_temp - (current_temp % 10);
 	}
-	current_setpoint --;
+	current_setpoint -= 10;
 	if (current_setpoint < SETPOINT_MIN) current_setpoint = SETPOINT_MIN;
 	setpoint_update_text();
 }
 
 static void setpoint_up_handler(ClickRecognizerRef recognizer, void *context) {
 	if (current_setpoint == SETPOINT_OFF) {
-		current_setpoint = current_temp;
+		// round up
+		current_setpoint = current_temp - (current_temp % 10);
 	} 
-	current_setpoint ++;
+	current_setpoint += 10;
 	if (current_setpoint > SETPOINT_MAX) current_setpoint = SETPOINT_MAX;
 	setpoint_update_text();
 }
 
 static void setpoint_select_handler(ClickRecognizerRef recognizer, void *context) {
-	setpoint_callback(current_setpoint);
-	window_stack_pop(true);
+	if (upper_setpoint == SETPOINT_NOTYET) {
+		upper_setpoint = current_setpoint;
+		current_setpoint = current_lower_setpoint;
+		setpoint_update_text();
+		setpoint_header[0] = 'L';
+		setpoint_header[1] = 'o';
+		setpoint_header[2] = 'w';
+	  	text_layer_set_text(header_layer, setpoint_header);	
+	} else {
+		setpoint_callback(upper_setpoint, current_setpoint);
+		window_stack_pop(true);
+	}
 }
 
 static void setpoint_select_long_handler(ClickRecognizerRef recognizer, void *context) {
@@ -102,13 +118,15 @@ static void setpoint_window_unload(Window *window) {
   	gbitmap_destroy(s_icon_minus);
 }
 
-void get_setpoint(int current_setp, float current_t, char* setpoint_head, SetpointCallback cb) {
-	current_setpoint = current_setp;
+void get_setpoint(int current_upper_setp, int current_lower_setp, int current_t, char* setpoint_head, SetpointCallback cb) {
+	upper_setpoint = SETPOINT_NOTYET;
+	current_setpoint = current_upper_setp;
+	current_lower_setpoint = current_lower_setp;
 	current_temp = current_t;
-	setpoint_header = setpoint_head;
+	snprintf(setpoint_header, sizeof(setpoint_header), "Upper - %s", setpoint_head);
 	setpoint_callback = cb;
-	snprintf(setpoint_current_temp, sizeof(setpoint_current_temp),
-			"Current: %d", (int) current_t);
+	snprintf(setpoint_current_temp, sizeof(setpoint_current_temp), "Current: ");
+	ditoa(setpoint_current_temp + 9, sizeof(setpoint_current_temp) - 9, current_t);
 	
 	Window *setpoint_window = window_create();
 	
