@@ -22,10 +22,10 @@ static char temp1_str[7];
 static char temp2_str[7];
 static char time_str[7];
 Layer *line_layer;
-static AppTimer* flash_timer = NULL;
-static int temp_flashing = 0;
 static int master_temp1 = 0;
 static int master_temp2 = 0;
+GBitmap *upper_setpoint_image, *lower_setpoint_image;
+BitmapLayer *setpoint_image_layers[4];
 
 int get_temp(int t) {
 	if (t == 1) return master_temp1;
@@ -91,37 +91,53 @@ void update_time(struct tm *time) {
 	text_layer_set_text(text_time_layer, time_str);
 }
 
-static int temp_flash_state = 0;
+void update_setpoint_icon(int t, bool is_upper, bool on) {
+	int i = (t-1) * 2 + (1 - is_upper);
+	layer_set_hidden(bitmap_layer_get_layer(setpoint_image_layers[i]), !on);
+}
+
+static AppTimer* flash_timer = NULL;
+static int temp_flashing = 0;
+
+// true if currently blank
+static bool temp_flash_state = false;
 
 void flash_temp(void* nothing) {
-	if (temp_flashing & 1) {
-		if (temp_flash_state & 1) {
+	// flash setpoint icons
+	for (int i=0; i<4; i++) {
+		int j = 1 << i;
+		if (temp_flashing & j) {
+			layer_set_hidden(bitmap_layer_get_layer(setpoint_image_layers[i]), !temp_flash_state);
+		}
+	}
+	// flash numbers
+	if (temp_flashing & 0x03) {
+		if (temp_flash_state) {
 			text_layer_set_text_color(temp1_layer, GColorWhite);
-			temp_flash_state &= ~1;
 		} else {
 			text_layer_set_text_color(temp1_layer, GColorBlack);
-			temp_flash_state |= 1;
 		}
 	}
-	if (temp_flashing & 2) {
-		if (temp_flash_state & 2) {
+	if (temp_flashing & 0x0c) {
+		if (temp_flash_state) {
 			text_layer_set_text_color(temp2_layer, GColorWhite);
-			temp_flash_state &= ~2;
 		} else {
 			text_layer_set_text_color(temp2_layer, GColorBlack);
-			temp_flash_state |= 2;
 		}
 	}
+	temp_flash_state = !temp_flash_state;
 	if (temp_flashing) {
 		flash_timer = app_timer_register(500, flash_temp, NULL);
 	}
 }
 
-void set_flash_temp(int t, bool flashing) {
-	if (flashing) {
-		temp_flashing |= t;
+void set_flash_temp(int t, bool alarm_upper, bool alarm_lower) {
+	int old_flashing = temp_flashing;
+	int flashing = alarm_lower << 1 | alarm_upper;
+	if (t == 1) {
+		temp_flashing = (temp_flashing & 0x0c) | flashing;
 	} else {
-		temp_flashing &= ~t;
+		temp_flashing = (temp_flashing & 0x03) | (flashing << 2);
 	}
 	if (temp_flashing) {
 		if (flash_timer == NULL) flash_temp(NULL);
@@ -131,6 +147,13 @@ void set_flash_temp(int t, bool flashing) {
 		flash_timer = NULL;
 		text_layer_set_text_color(temp1_layer, GColorWhite);
 		text_layer_set_text_color(temp2_layer, GColorWhite);
+		// reset setpoint icons
+		for (int i=0; i<4; i++) {
+			int j = 1 << i;
+			if (old_flashing & j) {
+				layer_set_hidden(bitmap_layer_get_layer(setpoint_image_layers[i]), false);
+			}
+		}		
 	}
 }
 
@@ -199,6 +222,18 @@ static void window_load(Window *window) {
 	text_layer_set_font(text_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
 	text_layer_set_text_alignment(text_time_layer, GTextAlignmentRight);
 	layer_add_child(window_layer, text_layer_get_layer(text_time_layer));
+	
+	// add setpoint icons
+	upper_setpoint_image = gbitmap_create_with_resource(RESOURCE_ID_SETPOINT_UPPER);
+	lower_setpoint_image = gbitmap_create_with_resource(RESOURCE_ID_SETPOINT_LOWER);
+	
+	for (int i=0; i<4; i++) {
+		setpoint_image_layers[i] = bitmap_layer_create(GRect(8, 12 + (i*18) + ((i&2)*4), 16, 16));
+		bitmap_layer_set_alignment(setpoint_image_layers[i], GAlignCenter);
+		bitmap_layer_set_bitmap(setpoint_image_layers[i], (i & 1 ? lower_setpoint_image : upper_setpoint_image));
+		layer_set_hidden(bitmap_layer_get_layer(setpoint_image_layers[i]), true);
+		layer_add_child(window_layer, bitmap_layer_get_layer(setpoint_image_layers[i]));
+	}
 }
 
 static void window_unload(Window *window) {

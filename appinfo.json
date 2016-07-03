@@ -13,6 +13,16 @@
     "resources": {
         "media": [
             {
+                "file": "images/setpoint_lower.png",
+                "name": "SETPOINT_LOWER",
+                "type": "png"
+            },
+            {
+                "file": "images/setpoint_upper.png",
+                "name": "SETPOINT_UPPER",
+                "type": "png"
+            },
+            {
                 "file": "images/action_icon_minus",
                 "name": "IMAGE_ACTION_ICON_MINUS",
                 "type": "png"
