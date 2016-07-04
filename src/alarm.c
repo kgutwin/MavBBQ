@@ -53,6 +53,10 @@ void alarm_silence() {
 	alarm_timer = NULL;
 }
 
+bool is_buzzing() {
+	return alarm_timer != NULL;
+}
+
 #define pass_upper(x) ((x) == SETPOINT_OFF ? -(x) : (x))
 
 // Check whether we should be sounding the alarm

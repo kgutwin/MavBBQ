@@ -12,6 +12,7 @@ static AppSync sync;
 #define SYNC_BUFFER_SIZE 64
 static uint8_t sync_buffer[SYNC_BUFFER_SIZE];
 static AppTimer* update_timer;
+static time_t last_request = 0;
 	
 // Compare two arbitrary tuples, returning zero if equal, and either positive
 // or negative 1 depending on if the first is "greater" than the second.
@@ -109,7 +110,8 @@ void request_update(void* nothing) {
 
 	app_message_outbox_send();
 	
-	update_timer = app_timer_register(2000, request_update, NULL);
+	//update_timer = app_timer_register(2000, request_update, NULL);
+	update_timer = NULL;
 }
 
 // Set up app sync, defining initial values for data parameters

@@ -10,7 +10,6 @@
 /* TODOs:
  * - check on floating point conversions (decimal is sometimes off of web page)
  * - icons: check mark for setpoints
- *   - upper/lower set point active on main screen, flash when alarming
  * - send battery charge percent as parameter on http get
  */
 
@@ -73,6 +72,8 @@ void update_temp2(int t) {
 }
 
 void update_time(struct tm *time) {
+	// maybe hacky but good enough for my purpose
+	if ((time->tm_sec % 30) == 0) request_update(NULL);
 	char* time_format;
 	if (time->tm_year == 0 || clock_is_24h_style()) {
 		time_format = (time->tm_sec % 2) ? "%H:%M" : "%H.%M";
@@ -167,7 +168,10 @@ static void up_long_handler(ClickRecognizerRef recognizer, void *context) {
 }
 
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
-	alarm_silence();
+	if (is_buzzing()) {
+		alarm_silence();
+	}
+	request_update(NULL);
 }
 
 static void select_long_handler(ClickRecognizerRef recognizer, void *context) {
